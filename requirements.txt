@@ -1,0 +1,8 @@
+psutil>=5.9.0
+matplotlib>=3.5.0
+numpy>=1.21.0
+GPUtil>=1.4.0
+WMI>=1.5.1
+streamlit>=1.28.0
+pandas>=1.5.0
+tqdm>=4.64.0 
