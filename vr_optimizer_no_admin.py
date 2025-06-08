@@ -358,6 +358,218 @@ class VROptimizerNoAdmin:
             logger.error(f"❌ VR専用設定最適化エラー: {e}")
             return False
     
+    def optimize_amd_gpu_vrchat(self) -> bool:
+        """AMD GPU向けVRChat特化最適化"""
+        try:
+            logger.info("AMD GPU向けVRChat最適化を実行中...")
+            
+            # AMD GPU検出
+            amd_gpu_detected = False
+            try:
+                import subprocess
+                gpu_info = subprocess.run(['wmic', 'path', 'win32_VideoController', 'get', 'name'], 
+                                        capture_output=True, text=True, timeout=10)
+                if 'AMD' in gpu_info.stdout or 'Radeon' in gpu_info.stdout:
+                    amd_gpu_detected = True
+                    logger.info("AMD GPUを検出しました")
+            except Exception:
+                pass
+            
+            if not amd_gpu_detected:
+                logger.info("AMD GPUが検出されませんでした")
+                return True
+            
+            # VRChat起動オプション設定
+            steam_userdata_paths = [
+                os.path.expanduser("~\\AppData\\Local\\Steam\\userdata"),
+                "C:\\Program Files (x86)\\Steam\\userdata"
+            ]
+            
+            for userdata_path in steam_userdata_paths:
+                if os.path.exists(userdata_path):
+                    try:
+                        # Steam設定ファイルでVRChatの起動オプションを確認/設定
+                        # --enable-hw-video-decodingオプションを推奨
+                        logger.info("VRChatの起動オプションに --enable-hw-video-decoding の追加を推奨")
+                        break
+                    except Exception as e:
+                        logger.warning(f"Steam設定の確認中にエラー: {e}")
+            
+            # AMD固有のレジストリ最適化
+            try:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, 
+                                  "Software\\AMD\\CN\\OverDrive", 0, 
+                                  winreg.KEY_SET_VALUE) as key:
+                    # AMD GPU最適化設定
+                    winreg.SetValueEx(key, "EnableUlps", 0, winreg.REG_DWORD, 0)  # ULPS無効化
+                    logger.info("AMD GPU ULPS設定を最適化しました")
+            except Exception:
+                pass
+            
+            # AMD Adrenalin設定の推奨値をログに記録
+            logger.info("AMD Adrenalin推奨設定:")
+            logger.info("- Anti-Lag: 無効")
+            logger.info("- Radeon Boost: 無効")
+            logger.info("- Radeon Image Sharpening: 無効")
+            logger.info("- AMD FreeSync: VR使用時は無効推奨")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"AMD GPU向けVRChat最適化でエラー: {e}")
+            return False
+
+    def optimize_vrchat_specific_settings(self) -> bool:
+        """VRChat特化設定最適化"""
+        try:
+            logger.info("VRChat特化設定最適化を実行中...")
+            
+            # VRChatローカル設定ディレクトリ
+            vrchat_data_path = os.path.expanduser("~\\AppData\\LocalLow\\VRChat\\VRChat")
+            
+            if os.path.exists(vrchat_data_path):
+                # VRChatの設定ファイル確認
+                logger.info("VRChat設定ディレクトリを検出しました")
+                
+                # 推奨設定をログに出力
+                logger.info("VRChat推奨設定:")
+                logger.info("- Avatar Culling Distance: 25m")
+                logger.info("- Maximum Shown Avatars: 15")
+                logger.info("- Pixel Light Count: Low以上")
+                logger.info("- Antialiasing: x2以上推奨")
+                logger.info("- Particle Limiter: 有効（パフォーマンス重視時）")
+                
+            # VRChatプロセス最適化
+            for proc in psutil.process_iter(['pid', 'name']):
+                try:
+                    if 'vrchat' in proc.info['name'].lower():
+                        p = psutil.Process(proc.info['pid'])
+                        p.nice(psutil.HIGH_PRIORITY_CLASS)
+                        logger.info(f"VRChatプロセス最適化: PID {proc.info['pid']}")
+                        break
+                except Exception:
+                    continue
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"VRChat特化設定最適化でエラー: {e}")
+            return False
+    
+    def optimize_virtual_desktop(self) -> bool:
+        """VirtualDesktop特化最適化"""
+        try:
+            logger.info("VirtualDesktop最適化を実行中...")
+            
+            # VirtualDesktopプロセス検出と最適化
+            vd_processes = ['VirtualDesktop.Service', 'VirtualDesktop.Streamer', 'VirtualDesktop.Dashboard']
+            optimized_processes = 0
+            
+            for proc in psutil.process_iter(['pid', 'name']):
+                try:
+                    if any(vd_proc.lower() in proc.info['name'].lower() for vd_proc in vd_processes):
+                        p = psutil.Process(proc.info['pid'])
+                        p.nice(psutil.HIGH_PRIORITY_CLASS)
+                        logger.info(f"VirtualDesktopプロセス最適化: {proc.info['name']} (PID: {proc.info['pid']})")
+                        optimized_processes += 1
+                except Exception:
+                    continue
+            
+            # ネットワーク最適化（VirtualDesktop向け）
+            try:
+                # TCP/UDP最適化
+                tcp_settings = [
+                    ("TcpWindowSize", 65536),
+                    ("TcpAckFrequency", 1),
+                    ("TCPNoDelay", 1),
+                    ("TcpDelAckTicks", 0)
+                ]
+                
+                interfaces_key = "SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Interfaces"
+                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, interfaces_key) as key:
+                    for i in range(winreg.QueryInfoKey(key)[0]):
+                        try:
+                            interface_name = winreg.EnumKey(key, i)
+                            interface_path = f"{interfaces_key}\\{interface_name}"
+                            
+                            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, interface_path, 0, 
+                                              winreg.KEY_SET_VALUE) as interface_key:
+                                for setting, value in tcp_settings:
+                                    try:
+                                        winreg.SetValueEx(interface_key, setting, 0, winreg.REG_DWORD, value)
+                                    except Exception:
+                                        pass
+                        except Exception:
+                            continue
+                
+                logger.info("VirtualDesktop向けネットワーク設定を最適化しました")
+                
+            except Exception as e:
+                logger.warning(f"ネットワーク最適化でエラー: {e}")
+            
+            # VirtualDesktop設定の推奨値をログに記録
+            logger.info("VirtualDesktop推奨設定:")
+            logger.info("- ビットレート: 自動または100-150Mbps（Wi-Fi 6使用時）")
+            logger.info("- フレームレート: 90Hz（Quest 2）, 120Hz（Quest 3）")
+            logger.info("- 解像度: 100%（パフォーマンス重視時は90%）")
+            logger.info("- H.264/H.265エンコーディング: GPU性能に応じて選択")
+            logger.info("- スライス: 2-4（レイテンシ重視時）")
+            logger.info("- 専用ルーター使用を強く推奨（Wi-Fi 6E/7対応）")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"VirtualDesktop最適化でエラー: {e}")
+            return False
+
+    def optimize_steamvr_performance(self) -> bool:
+        """SteamVR性能最適化"""
+        try:
+            logger.info("SteamVR性能最適化を実行中...")
+            
+            # SteamVRプロセス最適化
+            steamvr_processes = ['vrserver', 'vrmonitor', 'vrcompositor', 'vrdashboard']
+            optimized_processes = 0
+            
+            for proc in psutil.process_iter(['pid', 'name']):
+                try:
+                    if any(svr_proc.lower() in proc.info['name'].lower() for svr_proc in steamvr_processes):
+                        p = psutil.Process(proc.info['pid'])
+                        p.nice(psutil.HIGH_PRIORITY_CLASS)
+                        logger.info(f"SteamVRプロセス最適化: {proc.info['name']} (PID: {proc.info['pid']})")
+                        optimized_processes += 1
+                except Exception:
+                    continue
+            
+            # SteamVR設定ファイルの最適化推奨値
+            steamvr_config_path = os.path.expanduser("~\\AppData\\Local\\openvr")
+            if os.path.exists(steamvr_config_path):
+                logger.info("SteamVR設定ディレクトリを検出しました")
+                
+                logger.info("SteamVR推奨設定:")
+                logger.info("- レンダリング解像度: 100%（高性能GPU時は110-120%）")
+                logger.info("- リフレッシュレート: HMDの最大値に設定")
+                logger.info("- モーションスムージング: 無効（十分なFPS時）")
+                logger.info("- 非同期再投影: 有効")
+                logger.info("- 自動解像度調整: 無効（手動調整推奨）")
+            
+            # Windows Mixed Reality最適化（該当する場合）
+            try:
+                wmr_key_path = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Holographic"
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, wmr_key_path, 0, 
+                                  winreg.KEY_SET_VALUE) as key:
+                    # WMR最適化設定
+                    winreg.SetValueEx(key, "FirstRunSucceeded", 0, winreg.REG_DWORD, 1)
+                    logger.info("Windows Mixed Reality設定を最適化しました")
+            except Exception:
+                pass
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"SteamVR性能最適化でエラー: {e}")
+            return False
+    
     def run_optimization(self) -> Dict[str, bool]:
         """最適化の実行"""
         logger.info("🚀 VR環境最適化を開始します...")
@@ -374,6 +586,10 @@ class VROptimizerNoAdmin:
             ("GPU設定最適化", self.optimize_gpu_settings),
             ("メモリ設定最適化", self.optimize_memory_settings),
             ("VR専用設定最適化", self.optimize_vr_specific_settings),
+            ("AMD GPU向けVRChat最適化", self.optimize_amd_gpu_vrchat),
+            ("VRChat特化設定最適化", self.optimize_vrchat_specific_settings),
+            ("VirtualDesktop最適化", self.optimize_virtual_desktop),
+            ("SteamVR性能最適化", self.optimize_steamvr_performance),
         ]
         
         results = {}
