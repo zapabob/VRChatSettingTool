@@ -417,8 +417,8 @@ class VRChatFPSAnalyzer:
             
             # レポート表示ウィンドウ
             self.show_analysis_report(report)
-            
-        except Exception as e:
+                
+            except Exception as e:
             logger.error(f"詳細分析エラー: {e}")
             messagebox.showerror("エラー", f"詳細分析中にエラーが発生しました: {e}")
     
