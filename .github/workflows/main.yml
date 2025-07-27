@@ -1,0 +1,42 @@
+# GitHub Actions workflow for VRChat Optimization Tool
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x' # Use the latest Python 3 version
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install ruff # Install ruff for linting
+
+    - name: Run Ruff Linter
+      run: ruff check .
+      # Add --fix to automatically fix issues if you want, but for CI, just checking is usually enough.
+
+    # TODO: Add steps for running tests here if you have any.
+    # - name: Run tests
+    #   run: python -m pytest
+
+    # TODO: Add steps for building/packaging if applicable.

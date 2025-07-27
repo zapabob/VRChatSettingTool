@@ -9,5 +9,6 @@ tqdm>=4.64.0
 configparser>=5.3.0
 requests>=2.28.0
 pynvml>=11.5.0
+ruff
 # 低スペック最適化ツール用追加パッケージ
-# tkinter は標準ライブラリ（GUI用） 
+# tkinter は標準ライブラリ（GUI用）
